@@ -20,18 +20,19 @@ marginOfError <- function(expectedProportion,sampleSize,confidenceLevel=.95,popu
   if(type=='wilson'){ # if computing Wilson CIs
     successCount <- n*expectedProportion
     CI <- prop.test(successCount, n, correct = F, conf.level = confidenceLevel)$conf.int # computes CI. Yate's continuity correction is off by default
-    MOE <- expectedProportion-CI[1] # subtract lowerbound of CI from proportion estimate to get the MOE
+    MOE <- (CI[2] - CI[1])/2 # to get the MOE, subtract lowerbound of CI from upperbound of CI and divide by two
 
     # NOT RUN — sanity check using hand written formula for Wilson CIs
-    # P <- expectedProportion
-    # Z <- round(qnorm(c( (1-confidenceLevel)/2, 1-(1-confidenceLevel)/2))[2],2)
-    # CI <- (2 * n * P + Z^2 + c(-1, 1) * Z * sqrt(Z^2 + 4 * n * P * (1 - P))) /
+    #P <- expectedProportion
+    #Z <- qnorm(c( (1-confidenceLevel)/2, 1-(1-confidenceLevel)/2))[2]
+    #CI <- (2 * n * P + Z^2 + c(-1, 1) * Z * sqrt(Z^2 + 4 * n * P * (1 - P))) /
     #   (2 * (n + Z^2)) 
+    #MOE <- (CI[2] - CI[1])/2 # to get the MOE, subtract lowerbound of CI from upperbound of CI and divide by two
     
   }else if(type=='wald'){ # if computing wald CIs
     P <- expectedProportion
     alpha <- (1 - confidenceLevel) / 2 # convert confidence level to alpha
-    Z <- round(stats::qnorm(alpha, lower.tail=FALSE),2) # convert alpha to Z
+    Z <- qnorm(alpha, lower.tail=FALSE) # convert alpha to Z
     MOE <- Z*sqrt(P*(1-P)/n) # compute margin of error for Wald confidence intervals 
   }
 
@@ -43,7 +44,7 @@ marginOfError <- function(expectedProportion,sampleSize,confidenceLevel=.95,popu
   if(report){ # if user has asked for a report
   print(paste0(
     'The margin of error of a 95% ', type,' confidence interval for an expected proportion of ',expectedProportion,
-    ' and a sample size of ',sampleSize,' is ', round(moe1,3)))
+    ' and a sample size of ',sampleSize,' is ', round(MOE,3)))
   }
   
   moe_object <- list(moe = MOE, target_sample_size = sampleSize, conf_interval_type = type)
@@ -70,15 +71,15 @@ precisionCurve <- function(expectedProportion,sampleSize,confidenceLevel=.95,pop
   }
   
   moe_vector <- moe_vector[!is.na(moe_vector)] # remove the NA value created when moe_vector was pre-loaded
-  df <- data.frame(sampleSize = sampleSizeVector,precision = moe_vector)
+  df <- data.frame(sampleSize = sample_size_vector,precision = moe_vector)
   
   # build plot
   plot <- ggplot(data = df, aes(x = sampleSize, y = precision)) +
-    geom_line(colour = 'black', size = .75) +
+    geom_line(colour = 'black', linewidth = .75) +
     theme_classic() +
     ylab('Precision (margin of error)') +
     xlab('Sample size') +
-    scale_x_continuous(expand = c(0.0, 0), limits = c(0,max(sampleSizeVector))) +
+    scale_x_continuous(expand = c(0.0, 0), limits = c(0,max(sample_size_vector))) +
     scale_y_continuous(expand = c(0.0, 0), limits = c(0,1), breaks = seq(0,1,0.1)) +
     theme(panel.grid.major = element_line(colour="grey97", size=0.5))
   
@@ -89,7 +90,7 @@ precisionCurve <- function(expectedProportion,sampleSize,confidenceLevel=.95,pop
 
 # Run the code below to compute a margin of error for given expected proportion and target sample size
 moe_object1 <- marginOfError(
-  expectedProportion =.5, # Specify the anticipated proportion. Use 0.5 for the most conservative sample size estimate (see Gelman & Hill, 2006, p. 442).
+  expectedProportion = .5, # Specify the anticipated proportion. Use 0.5 for the most conservative sample size estimate (see Gelman & Hill, 2006, p. 442).
   sampleSize = 100, # Specify the target sample size
   populationSize = Inf, # If population size is known, we can apply a finite population correction, otherwise use Inf
   confidenceLevel = .95, # specify the level of the confidence interval
@@ -97,12 +98,11 @@ moe_object1 <- marginOfError(
 
 # Lets get a second moe for a different target sample size (so we can display both on a precision curve)
 moe_object2 <- marginOfError(
-  expectedProportion =.5, # Specify the anticipated proportion. Use 0.5 for the most conservative sample size estimate (see Gelman & Hill, 2006, p. 442).
+  expectedProportion = .5, # Specify the anticipated proportion. Use 0.5 for the most conservative sample size estimate (see Gelman & Hill, 2006, p. 442).
   sampleSize = 50, # Specify the target sample size
   populationSize = Inf, # If population size is known, we can apply a finite population correction, otherwise use Inf
   confidenceLevel = .95, # specify the level of the confidence interval
   type = 'wilson')
-
 
 # Now plot a precision curve showing precision (margin of error) as a function of sample size.
 # We'll annotate the plot with the parameters above
